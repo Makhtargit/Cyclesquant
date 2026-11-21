@@ -58,6 +58,10 @@
 ---
 # Annexe · historique des versions
 
+## v6.13 (21/11/2026)
+- Onglet Or : tableau « Niveaux de GDX et équivalent or » sous le graphique GDX (fin de correction, non-retour, sortie du cycle A, bascule), et l'équivalent or sur les étiquettes du graphique ; graphique du cours de l'or avec ces niveaux convertis en or (même période que le graphique GDX). Or ≈ or du jour × (niveau / GDX)^(1/β), β = sensibilité de GDX à l'or sur 250 séances (≈ 1,44). Lecture, pas une règle.
+- Point de non-retour de GDX : la carte cite désormais la statistique des mines (corrections de GDX au-delà de −25 % pendant un cycle de l'or : 0 reprise sur 7, corrections_phases_or) au lieu de celle de la tech (54-78 %).
+
 ## v6.12 (21/11/2026)
 - K2 ne bloque plus que la tech (SOX, Logiciel, NDX) ; l'or et l'or-VIX restent libres (décision du trader, k2_or). Titres 2016-2026 : rapport 1,56 → 1,70, pire baisse −23 % → −21 % ; les entrées or de 12/2018 et 10/2022 étaient bloquées. Les 10 trades or-VIX que K2 bloquait faisaient +14,8 % en moyenne.
 - Or-VIX : on achète au signal. Attendre 1 à 2 semaines fait payer 1,5 à 2 % plus cher et rater 3 à 4 trades ; l'achat en deux fois n'aide pas (or_vix_attente).

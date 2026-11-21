@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from boussoles.regles import MARCHES, SEUIL, SP
 from boussoles.donnees import tout_charger
-from boussoles.calcul import tout_calculer, historique, nb, pc, cone, rang, etat_break, or_vix, k2_mensuel
+from boussoles.calcul import tout_calculer, historique, nb, pc, cone, rang, etat_break, or_vix, k2_mensuel, equiv_or
 from boussoles import FICHIERS
 from boussoles.modele import DEPLOIEMENT, lire_journal, completer, valoriser, ligne_journal, JOURNAL
 import json as _json
@@ -37,6 +37,7 @@ def calculer(_D, asof, memoire, cle):
 
 with st.sidebar:
     st.markdown("### 🧭 Boussoles")
+    st.caption("Version 6.13 · 21/11/2026 · équivalent or des niveaux GDX")
     if st.button("Mettre à jour les données", width="stretch"): charger.clear(); calculer.clear()
 D, SRC, quand = charger()
 if D["vix"].empty or D[SP].empty:
@@ -631,11 +632,12 @@ def graphique(e, nj):
     niv = [("Sortie du cycle (A)", e["A"]["niveau_sortie"], COUL["bad"]), ("Couteau S5", e["S5"]["invalidation"] if e["S5"]["valide"] else None, "#fb7185"),
            ("Non-retour", m["niveau_non_retour"], COUL["warn"]), ("Fin de correction", m["niveau_confirmation"], COUL["ok"]),
            ("Bascule en correction", m["niveau_bascule"], COUL["warn"])]
+    EQ = equiv_or(D, s.index[-1], {l_: y_ for l_, y_, _ in niv}) if e["nom"] == GDXN else None     # équivalent or des niveaux de GDX
     prev = None
     for lab, y, col in sorted([x for x in niv if x[1] is not None], key=lambda x: x[1]):
         proche = prev is not None and abs(y / prev - 1) < 0.03          # deux niveaux voisins : on décale l'étiquette
         fig.add_shape(type="line", x0=s.index[0], x1=fut[-1], y0=y, y1=y, line=dict(color=col, width=1.4, dash="dash"), row=1, col=1)
-        fig.add_annotation(x=s.index[0] if not proche else s.index[len(s) // 3], y=y, text=f"{lab} · {nb(y)}", showarrow=False, xanchor="left",
+        fig.add_annotation(x=s.index[0] if not proche else s.index[len(s) // 3], y=y, text=f"{lab} · {nb(y)}" + (f" · or ≈ {nb(EQ['niveaux'][lab][1], 0)}" if EQ and lab in EQ["niveaux"] else ""), showarrow=False, xanchor="left",
                            yanchor="bottom" if not proche else "top", font=dict(color=col, size=10.5), bgcolor="rgba(10,15,28,.75)", borderpad=2, row=1, col=1)
         prev = y
     fig.add_trace(go.Scatter(x=q80.index, y=q80.values, name="Seuil de peur (80e)", line=dict(color="#64748b", width=1.5, dash="dot"), hovertemplate="%{y:.1f}<extra>seuil</extra>"), 2, 1)
@@ -768,6 +770,30 @@ def vue_or():
         tuiles_marche(g_, repere=True)
         pg = st.segmented_control("Période GDX", ["3 mois", "6 mois", "1 an", "3 ans", "10 ans"], default="1 an", label_visibility="collapsed", key="per_gdx_rep") or "1 an"
         st.plotly_chart(graphique(g_, {"3 mois": 63, "6 mois": 126, "1 an": 252, "3 ans": 756, "10 ans": 2520}[pg]), width="stretch", config=dict(displayModeBar=False))
+        m_ = g_["mini"]; EQ = equiv_or(D, g_["date"], {"Fin de correction": m_["niveau_confirmation"], "Non-retour": m_["niveau_non_retour"],
+                                                     "Sortie du cycle (A)": g_["A"]["niveau_sortie"], "Bascule en correction": m_["niveau_bascule"]})
+        if EQ and EQ["niveaux"]:
+            lg = "".join(f'<tr><td>{k}</td><td class="num">{nb(v)}</td><td class="num">{pc(v / EQ["gdx"] - 1)}</td><td class="num">{nb(o, 0)} $</td><td class="num">{pc(o / EQ["or_"] - 1)}</td></tr>'
+                         for k, (v, o) in sorted(EQ["niveaux"].items(), key=lambda x: -x[1][0]))
+            md(carte(f'<div class="lab">Niveaux de GDX et équivalent or · GDX {nb(EQ["gdx"])} · or {nb(EQ["or_"], 0)} $ · sensibilité β {nb(EQ["beta"])} (250 séances)</div>'
+                     f'<table style="width:100%;margin-top:6px"><tr class="small"><td>Niveau</td><td>GDX</td><td>écart</td><td>Or ≈</td><td>écart</td></tr>{lg}</table>'
+                     f'<div class="small" style="margin-top:6px">Or ≈ or du jour × (niveau / GDX)^(1/β). Lecture, pas une règle : en krach de liquidité les mines baissent 4 à 10 fois plus que l’or, et le niveau GDX peut tomber sans que l’or atteigne son équivalent.</div>', "card tight"))
+            md('<div class="lab" style="margin-top:10px">Cours de l’or avec les niveaux de GDX convertis en or</div>')
+            og = D["or"].loc[:g_["date"]].dropna().iloc[-{"3 mois": 63, "6 mois": 126, "1 an": 252, "3 ans": 756, "10 ans": 2520}[pg]:]
+            fo = go.Figure(go.Scatter(x=og.index, y=og.values, name="Or", line=dict(color="#fbbf24", width=2), hovertemplate="%{y:,.0f} $<extra>Or</extra>"))
+            CL = {"Fin de correction": COUL["ok"], "Non-retour": COUL["warn"], "Sortie du cycle (A)": COUL["bad"], "Bascule en correction": COUL["warn"]}
+            prev = None
+            for k, (v, o) in sorted(EQ["niveaux"].items(), key=lambda x: x[1][1]):
+                proche = prev is not None and abs(o / prev - 1) < 0.02
+                fo.add_hline(y=o, line=dict(color=CL.get(k, "#94a3b8"), width=1.4, dash="dash"))
+                fo.add_annotation(x=og.index[0] if not proche else og.index[len(og) // 3], y=o, text=f"{k} · or ≈ {nb(o, 0)} $ (GDX {nb(v)})", showarrow=False, xanchor="left",
+                                  yanchor="bottom" if not proche else "top", font=dict(color=CL.get(k, "#94a3b8"), size=10.5), bgcolor="rgba(10,15,28,.75)", borderpad=2)
+                prev = o
+            fo.update_layout(height=360, margin=dict(l=4, r=12, t=6, b=8), showlegend=False, **LAYOUT)
+            lo_ = min([og.min()] + [o for _, o in EQ["niveaux"].values()]); hi_ = max([og.max()] + [o for _, o in EQ["niveaux"].values()])
+            fo.update_xaxes(showgrid=False, linecolor="#1e293b"); fo.update_yaxes(gridcolor="#1a2438", zeroline=False, range=[lo_ * 0.97, hi_ * 1.03])
+            st.plotly_chart(fo, width="stretch", config=dict(displayModeBar=False))
+            md('<div class="small">Les niveaux sont ceux de GDX du jour, convertis avec la sensibilité β : ils bougent chaque jour avec GDX et l’or. Même période que le graphique GDX.</div>')
     md('<div class="sec">3 · Signaux d’entrée de la stratégie or et volatilité de l’or</div>')
     per = st.segmented_control("Période or", ["1 an", "3 ans", "10 ans", "Tout"], default="3 ans", label_visibility="collapsed") or "3 ans"
     nj = {"1 an": 252, "3 ans": 756, "10 ans": 2520, "Tout": 10 ** 6}[per]
