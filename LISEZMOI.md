@@ -58,6 +58,10 @@
 ---
 # Annexe · historique des versions
 
+## v6.12 (21/11/2026)
+- K2 ne bloque plus que la tech (SOX, Logiciel, NDX) ; l'or et l'or-VIX restent libres (décision du trader, k2_or). Titres 2016-2026 : rapport 1,56 → 1,70, pire baisse −23 % → −21 % ; les entrées or de 12/2018 et 10/2022 étaient bloquées. Les 10 trades or-VIX que K2 bloquait faisaient +14,8 % en moyenne.
+- Or-VIX : on achète au signal. Attendre 1 à 2 semaines fait payer 1,5 à 2 % plus cher et rater 3 à 4 trades ; l'achat en deux fois n'aide pas (or_vix_attente).
+
 ## v6.11 (20/11/2026)
 - Levée rapide de K2 (décision du trader, k2_levee_taux) : 2 vendredis au-dessus de la moyenne 40 semaines suffisent si le décor de taux est éteint ; 8 tant qu'il est allumé. Titres 2016-2026 : +36,3 %/an au lieu de +34,7 % ; indices 1995-2015 : pire baisse −33 % au lieu de −40 %.
 

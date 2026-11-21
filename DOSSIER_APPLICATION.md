@@ -13,7 +13,7 @@ Boussoles est une application Streamlit en Python. Chaque soir, elle télécharg
 3. **Pas d'anticipation.** Toute séance passée se rejoue avec les seules données connues ce jour-là. Les délais de publication sont respectés : 13F à 45 jours, marge FINRA le 25 du mois suivant, compositions SEC à 60 jours.
 4. **Régime en cours d'abord.** Les réglages sont calés sur les 4 dernières années, avec l'historique en garde-fou. Chaque réglage a une date de péremption, et une sortie de cycle déclenche un recalibrage.
 5. **Toujours une copie de secours.** Chaque téléchargement est copié dans `cache/`. Si une source ne répond pas, la dernière copie sert.
-6. **Contraintes du trader :** titres seulement (ni ETF ni contrat à terme, sauf PHYS pour l'or), parts dehors en cash, pas de levier, 50 % au plus par part (25 % pour l'or). Break : capital à −30 % → tout couper ; blocage K2 → aucune entrée nouvelle ; −35 % → arrêt du système.
+6. **Contraintes du trader :** titres seulement (ni ETF ni contrat à terme, sauf PHYS pour l'or), parts dehors en cash, pas de levier, 50 % au plus par part (25 % pour l'or). Break : capital à −30 % → tout couper ; blocage K2 → aucune entrée tech nouvelle (or et or-VIX libres) ; −35 % → arrêt du système.
 
 ## Architecture
 
@@ -153,7 +153,7 @@ Toutes les valeurs ci-dessous sont dans `boussoles/regles.py` (`MARCHES`, `REGLA
 **Or · rebond après panique (or-VIX, `or_vix`, 20/11/2026)**
 
 - Déclencheur : le VIX a atteint 30 dans les 20 dernières séances, puis clôture sous 85 % de ce pic.
-- Achat à la clôture du déclencheur, seulement si la part or est dehors et K2 éteint : cœur de 2 mines figé ce jour-là (`fige_or_vix`), 50 / 50.
+- Achat à la clôture du déclencheur, seulement si la part or est dehors (K2 ne la bloque pas depuis le 21/11/2026) : cœur de 2 mines figé ce jour-là (`fige_or_vix`), 50 / 50.
 - Taille : 15 % du capital au plus, dans la limite or de 25 %, pris sur le cash ; hors W1.
 - Sortie : à la 126e séance, ou si GDX clôture 25 % sous son cours d'achat.
 
@@ -168,7 +168,7 @@ Toutes les valeurs ci-dessous sont dans `boussoles/regles.py` (`MARCHES`, `REGLA
    - × 1 en mini-correction sans S5 ;
    - × 0,5 en plus si le recul depuis le plus haut du cycle dépasse la moitié du seuil de cycle.
 3. **Limites :** la somme investie est ramenée à 100 % au plus, puis chaque part à 50 % au plus (25 % pour l'or, décision du 19/11/2026). Le reste va en cash.
-4. **Break (prioritaire, `etat_break`) :** capital à −30 % de son plus haut → tout couper ; blocage K2 (S&P sous sa moyenne 40 semaines en clôture du vendredi et décor de taux allumé ; levé après 8 vendredis de suite au-dessus, ou 2 si le décor de taux s'est éteint) → aucune part nouvelle ; −35 % → arrêt.
+4. **Break (prioritaire, `etat_break`) :** capital à −30 % de son plus haut → tout couper ; blocage K2 (S&P sous sa moyenne 40 semaines en clôture du vendredi et décor de taux allumé ; levé après 8 vendredis de suite au-dessus, ou 2 si le décor de taux s'est éteint) → aucune part tech nouvelle (SOX, Logiciel, NDX ; l'or et l'or-VIX restent libres, k2_or) ; −35 % → arrêt.
 
 ## Calculs de l'application
 
@@ -187,7 +187,7 @@ Une ouverture de page exécute `app.py` de haut en bas. Les calculs lourds sont 
 | 5 | `position_regle` (app.py) | Badge de chaque marché = état de la règle, jamais une alerte |
 | 6 | `or_titres` | Liste des 5 mines, cœur, budget, répartition mines / PHYS |
 | 7 | `portefeuille` | Poids W1 de fin de mois × multiplicateur d'état × limites ; part or-VIX (`or_vix`) ; cash ; poche XLP ; correction généralisée ; dispersion |
-| 7a | `modele` (modele.py) | Portefeuille modèle depuis le déploiement : journal `fichiers/journal_modele.csv`, K2 sur les parts nouvelles, coupe à −30 % |
+| 7a | `modele` (modele.py) | Portefeuille modèle depuis le déploiement : journal `fichiers/journal_modele.csv`, K2 sur les parts tech nouvelles, coupe à −30 % |
 | 7b | `ordres_du_jour` (app.py) | Ordres à l'impératif par part, en actions entières ; carte de la poche pétrole |
 | 8 | `alertes_decor` → `conclusion_du_jour` | Familles C et D → phrase et tableau de la Conclusion du jour |
 | 9 | `series_macro` → `graphique_macro` ; `inst_13f` | Onglet Macro : six panneaux et la carte 13F |

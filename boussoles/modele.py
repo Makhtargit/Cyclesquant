@@ -1,6 +1,6 @@
 """Portefeuille modèle du système, suivi depuis son déploiement (19/11/2026).
 Chaque séance : la position et les poids que donnent les règles (portefeuille), le break appliqué
-(blocage K2 : pas de part nouvelle ; capital modèle à −30 % : tout en cash). La valeur avance avec les clôtures
+(blocage K2 : pas de part tech nouvelle ; capital modèle à −30 % : tout en cash). La valeur avance avec les clôtures
 des titres tenus la veille. Journal : fichiers/journal_modele.csv (écrit par fichiers/journal_modele.py, chaque soir)."""
 import os, re, json
 import numpy as np, pandas as pd
@@ -12,6 +12,7 @@ from .titres import titres as calc_titres, or_titres, portefeuille, fige_or_vix
 DEPLOIEMENT = pd.Timestamp(os.environ.get("BOUSSOLES_DEPLOIEMENT", "2026-11-19"))   # variable d’environnement : pour les tests seulement
 JOURNAL = os.path.join(FICHIERS, "journal_modele.csv")
 PARTS = ["SOX", "Logiciel", "NDX", "Or", "Or-VIX"]
+TECH = ("SOX", "Logiciel", "NDX")   # K2 ne bloque que la tech ; or et or-VIX libres (k2_or, décision du 21/11/2026)
 FRAIS = 0.002            # par unité de poids échangée (mêmes frais que les tests)
 
 def lignes_part(p):
@@ -47,7 +48,7 @@ def ligne_journal(D, asof, prec=None):
         p = (PF or {}).get("parts", {}).get(n)
         if not p: continue
         L = lignes_part(p)
-        if B.get("actif") and L and not tenu_hier.get(n): L = []          # blocage K2 : aucune part nouvelle
+        if B.get("actif") and n in TECH and L and not tenu_hier.get(n): L = []   # blocage K2 : aucune part tech nouvelle
         if L: pos[n] = L
     return asof_, pos, B
 

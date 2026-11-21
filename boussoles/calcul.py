@@ -190,7 +190,7 @@ def k2_mensuel(D, asof):
 def or_vix(D, asof, O=None, fenetre=600):
     """Mines après une panique du VIX (or_vix · or_vix_sortie · or_vix_risque · or_vix_fraction ; décision du trader du 20/11/2026).
     Déclencheur : le VIX a atteint 30 dans les 20 dernières séances puis reflue sous 85 % de ce pic. Achat à la clôture du jour du
-    déclencheur, si la part or n'est pas investie et si K2 est éteint. Sortie 126 séances après l'achat, ou si GDX perd 25 % depuis l'achat.
+    déclencheur, si la part or n'est pas investie (K2 ne bloque pas l'or-VIX depuis le 21/11/2026, k2_or). Sortie 126 séances après l'achat, ou si GDX perd 25 % depuis l'achat.
     Taille : 15 % du capital au plus, dans la limite or de 25 %. Mesuré sur GDX ; détenu en cœur de 2 mines."""
     g = D.get("Mines d'or (GDX)", pd.Series(dtype=float)).loc[:asof].dropna(); v = D["vix"].loc[:asof].dropna()
     if len(g) < 300 or len(v) < 300: return None
@@ -203,9 +203,6 @@ def or_vix(D, asof, O=None, fenetre=600):
                 inn = False; hist.append(dict(entree=idx[t0], sortie=idx[t], resultat=p[t] / p0 - 1, motif="6 mois" if t - t0 >= 126 else "stop −25 %"))
             continue
         if trig[t] and pos_or[t] == 0:
-            m_ = (idx[t].year, idx[t].month)
-            if m_ not in k2c: B_ = etat_break(D, idx[t]); k2c[m_] = bool(B_ and B_["actif"])
-            if k2c[m_]: bloque = idx[t]; continue
             inn = True; t0 = t; p0 = p[t]
     n = len(idx) - 1
     out = dict(actif=inn, signal=bool(trig[-1]), vix=float(vv.iloc[-1]), pic=float(vpk.iloc[-1]), seuil_reflux=float(0.85 * vpk.iloc[-1]),

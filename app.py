@@ -217,7 +217,7 @@ def bandeau_break():
         st.error(("RÈGLE D'ARRÊT · " if arret else "BREAK · ") + f"capital à {pc(dd)} de son plus haut : tout couper. "
                  + ("Au-delà de −35 %, on arrête le système et on le réexamine." if arret else "Retour au plus tôt 3 mois après, quand le S&P a clôturé deux fins de mois au-dessus de sa moyenne 10 mois."))
     if B and B["actif"]:
-        st.warning(f"BLOCAGE K2 depuis le {B['depuis']:%d/%m/%Y} : aucune nouvelle entrée (S7, S5, or, or-VIX). Les positions ouvertes suivent leurs règles. "
+        st.warning(f"BLOCAGE K2 depuis le {B['depuis']:%d/%m/%Y} : aucune nouvelle entrée tech (SOX, Logiciel, NDX). L'or et l'or-VIX restent libres. Les positions ouvertes suivent leurs règles. "
                    f"Levée après {B['semaines_requises']} clôtures hebdomadaires de suite au-dessus de la moyenne 40 semaines du S&P ({B['semaines_au_dessus']}/{B['semaines_requises']}) — 8 tant que le décor de taux est allumé, 2 dès qu'il s'éteint.")
     if not B: return
     dec = [("10 ans", B["taux10_6m"], SEUIL["taux10_6m"], "/ 6 mois"), ("Fed", B["fed_12m"], 1.0, "/ 12 mois"), ("Taux réel", B["taux_reel_12m"], SEUIL["taux_reel_12m"], "/ 12 mois")]
@@ -225,7 +225,7 @@ def bandeau_break():
     kpi = [("Break · coupe à −30 %", "—" if dd is None else pc(dd), "mute" if dd is None else ("bad" if coupe else "warn" if dd <= -0.20 else "ok"),
             "renseigne ton capital (barre latérale)" if dd is None else f"capital / plus haut · arrêt du système à −35 %"),
            ("Blocage K2", "ACTIF" if B["actif"] else "NON", "bad" if B["actif"] else "ok",
-            "aucune entrée nouvelle" if B["actif"] else ("se déclenche si le S&P clôture la semaine (vendredi) sous sa moyenne 40 semaines" if B["decor"] else "décor de taux éteint")),
+            "aucune entrée tech nouvelle · or libre" if B["actif"] else ("se déclenche si le S&P clôture la semaine (vendredi) sous sa moyenne 40 semaines" if B["decor"] else "décor de taux éteint")),
            ("S&P / moyenne 40 semaines", pc(B["ecart"]), "warn" if B["ecart"] < 0.03 else "ok", f'{nb(B["sp"], 0)} contre {nb(B["m40"], 0)} · seuil de clôture du vendredi'),
            ("Décor de taux", "ALLUMÉ" if B["decor"] else "ÉTEINT", "warn" if B["decor"] else "ok", dtx)]
     for col, (lab, v_, niv, det) in zip(st.columns(4), kpi):
@@ -292,7 +292,7 @@ def ordres_du_jour(PF):
         elif a and b and ta != tb: o, niv, det = "REMPLACER À LA CLÔTURE", "warn", "vendre " + ", ".join(sorted(ta - tb)) + " · acheter " + fmt([x for x in b if x[0] not in ta])
         elif a and b and abs(wb - wa) >= 0.005: o, niv, det = f"AJUSTER À {nb(wb * 100, 0)} %", "info", fmt(b)
         elif a and b: o, niv, det = "TENIR", "ok", fmt(b)
-        elif k2 and p_.get("dedans"): o, niv, det = "INTERDIT D'ACHETER (K2)", "bad", "Le signal est là, mais le blocage K2 interdit toute entrée nouvelle."
+        elif k2 and n in ("SOX", "Logiciel", "NDX") and p_.get("dedans"): o, niv, det = "INTERDIT D'ACHETER (K2)", "bad", "Le signal est là, mais le blocage K2 interdit toute entrée tech nouvelle."
         else:
             o, niv = "RESTER EN CASH", "mute"
             if n == "Or-VIX":
@@ -330,7 +330,7 @@ def ordres_du_jour(PF):
                  f'Seulement si un catalyseur d’offre durable est là (guerre, blocus, coupure qui dure) <b>et</b> que l’accélération est allumée : jusqu’à <b>{nb(dispo * 100, 0)} %</b>{mt} du capital, pris sur le cash, en XOM · CVX · COP. '
                  f'Stops : COP −8 %, XOM −5,4 %, CVX −5,8 %. Sortie : vitesse du Brent repassée sous zéro, ou XLE −15 % depuis son plus haut. Compte dans le capital du break. Note chaque trade dans ton journal.</div>', "card tight", "border-left:3px solid #f59e0b"))
     except Exception as ex: st.caption(f"Poche pétrole indisponible : {ex}")
-    md('<div class="small" style="margin:-4px 0 10px">Si ton portefeuille réel diffère du modèle, aligne-le sur lui à la clôture (sauf blocage K2 : aucune part nouvelle). Actions entières seulement : chaque quantité est arrondie à l’action inférieure et le reste reste en cash. Les quantités supposent le capital saisi dans la barre latérale ; sans capital, l’ordre donne les poids.</div>')
+    md('<div class="small" style="margin:-4px 0 10px">Si ton portefeuille réel diffère du modèle, aligne-le sur lui à la clôture (sauf blocage K2 : aucune part tech nouvelle). Actions entières seulement : chaque quantité est arrondie à l’action inférieure et le reste reste en cash. Les quantités supposent le capital saisi dans la barre latérale ; sans capital, l’ordre donne les poids.</div>')
 
 def bloc_modele():
     """Portefeuille modèle du système depuis le déploiement."""
@@ -441,9 +441,9 @@ def conclusion_du_jour(PF):
        f'<div><span class="lab" style="margin-right:8px">D · Climat de creux</span>{"".join(tag(n_, v, "ok") for n_, v in fam_d)}</div></div>')
     with st.expander("Comment lire la conclusion"):
         md('<div class="txt"><b>A</b> dit si l’on peut être investi, <b>B</b> dit quand et quoi détenir : ces deux familles seules décident. '
-           f'<b>Poids</b> : W1 de fin de mois ({jour(PF["date_poids"])}) × l’état du cycle de la part (cycle porteur × 1,5 ; couteau pris par un S5 × 0,5 ; correction sans S5 × 1 ; fin de cycle proche × 0,5 en plus), total investi ≤ 100 %, 50 % au plus par part et 25 % pour l’or tant qu’il n’a pas de trades réels, le reste en cash (allocation_cycles, limite_or). <b>Break</b> : capital à −30 % de son plus haut → tout couper ; blocage K2 (S&P sous sa moyenne 40 semaines en clôture du vendredi avec un décor de taux allumé) → aucune entrée nouvelle, levé après 8 vendredis de suite au-dessus, ou 2 si le décor de taux s’est éteint (k2_duree · k2_levee_taux) ; −35 % → arrêt du système (break). '
+           f'<b>Poids</b> : W1 de fin de mois ({jour(PF["date_poids"])}) × l’état du cycle de la part (cycle porteur × 1,5 ; couteau pris par un S5 × 0,5 ; correction sans S5 × 1 ; fin de cycle proche × 0,5 en plus), total investi ≤ 100 %, 50 % au plus par part et 25 % pour l’or tant qu’il n’a pas de trades réels, le reste en cash (allocation_cycles, limite_or). <b>Break</b> : capital à −30 % de son plus haut → tout couper ; blocage K2 (S&P sous sa moyenne 40 semaines en clôture du vendredi avec un décor de taux allumé) → aucune entrée tech nouvelle (l’or et l’or-VIX restent libres, k2_or), levé après 8 vendredis de suite au-dessus, ou 2 si le décor de taux s’est éteint (k2_duree · k2_levee_taux) ; −35 % → arrêt du système (break). '
            f'<b>Position</b> : cycle ouvert → cœur de 2 du dernier S5 (coeur_permanent). <b>Exécution</b> : à la clôture du jour du signal, par un ordre au cours de clôture (vers 21 h 40, heure de Paris, à vérifier selon ton courtier et l’heure d’été) ; les sorties sont des niveaux connus la veille (timing_entree). '
-           f'<b>Or · rebond après panique</b> : quand le VIX a atteint 30 puis repasse sous 85 % de son pic, cœur de 2 mines, 15 % du capital au plus dans la limite or de 25 %, si la part or est dehors et K2 éteint ; vente 126 séances après ou si GDX perd 25 % (or_vix_risque). '
+           f'<b>Or · rebond après panique</b> : quand le VIX a atteint 30 puis repasse sous 85 % de son pic, cœur de 2 mines, 15 % du capital au plus dans la limite or de 25 %, si la part or est dehors (K2 ne la bloque pas) ; vente 126 séances après ou si GDX perd 25 % (or_vix_risque). '
            f'<b>C</b> et <b>D</b> sont des alertes : elles disent où regarder, jamais quoi faire ; testées ensemble, elles ne se cumulent pas (familles_indicateurs). Si une alerte contredit la règle, la règle gagne.<br>'
            f'Poche hors stratégie, pour les excursions entre deux trades : {" · ".join(PF["defensif"])} (XLP au {PF["date_xlp"]}).</div>')
 
