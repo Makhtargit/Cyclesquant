@@ -8,7 +8,7 @@ from boussoles.regles import MARCHES, SEUIL, SP
 from boussoles.donnees import tout_charger
 from boussoles.calcul import tout_calculer, historique, nb, pc, cone, rang, etat_break, or_vix, k2_mensuel, equiv_or
 from boussoles import FICHIERS
-from boussoles.modele import DEPLOIEMENT, lire_journal, completer, valoriser, ligne_journal, JOURNAL
+from boussoles.modele import DEPLOIEMENT, lire_journal, completer, valoriser, ligne_journal, JOURNAL, cours_valorisation, VERSION
 import json as _json
 import json
 from boussoles.titres import titres as calc_titres, THEMES, peremptions, or_titres, recalibrages, portefeuille, fige_or_vix, phase_temps_reel
@@ -37,7 +37,7 @@ def calculer(_D, asof, memoire, cle):
 
 with st.sidebar:
     st.markdown("### 🧭 Boussoles")
-    st.caption("Version 6.13 · 21/11/2026 · équivalent or des niveaux GDX")
+    st.caption("Version 7.0 · 24/11/2026 · système optimisé (sans X5, cœur d’un titre)")
     if st.button("Mettre à jour les données", width="stretch"): charger.clear(); calculer.clear()
 D, SRC, quand = charger()
 if D["vix"].empty or D[SP].empty:
@@ -164,13 +164,26 @@ def inst_13f():
                 f"part tech active, T{(r.periode.month - 1) // 3 + 1} {r.periode.year} · {r.reduisent:.0%} allègent" + (" · vendent dans la hausse" if r.T4 else ""))
     except Exception: return ("Institutions · 13F", "—", "mute", "fichier indisponible")
 
+def defensives_en_tete(jusqua, fenetre=21):
+    """Alerte de tension « défensives en tête » (defensives_signal, 22/11/2026) : la tech est encore haute (NDX à moins de 5 % de son plus haut
+    de 126 séances) et XLP bat le S&P d'au moins 5 pts sur 21 séances. Allumée si le signal est apparu dans les `fenetre` dernières séances.
+    Lecture, pas règle : 14 cas depuis 1999, baisse du NDX d'au moins 10 % dans les 3 mois une fois sur deux (contre 15 % en temps normal)."""
+    try:
+        x = D["titres"]["close"]["XLP"].loc[:jusqua].dropna(); s_ = D[SP].loc[:jusqua].dropna(); n_ = D["NDX"].loc[:jusqua].dropna()
+        ix_ = x.index.intersection(s_.index).intersection(n_.index); x, s_, n_ = x[ix_], s_[ix_], n_[ix_]
+        rel = x / x.shift(21) - s_ / s_.shift(21); sig = (n_ >= 0.95 * n_.rolling(126).max()) & (rel >= 0.05)
+        r = sig.iloc[-fenetre:]
+        if r.any(): d_ = r[r].index[-1]; return True, d_, float(rel[d_])
+        return False, None, float(rel.iloc[-1])
+    except Exception: return False, None, float("nan")
+
 def alertes_decor(PF):
     """Famille C (tension de fin de cycle) et famille D (climat de creux), état du jour — familles_indicateurs."""
     f12 = C["fed_12m"] if C["fed_12m"] == C["fed_12m"] else 0.0; arme = C["taux10_6m"] >= SEUIL["taux10_6m"] or f12 >= 1.0
     i13 = inst_13f(); co = C.get("concentration", np.nan)
-    fam_c = [("Interrupteur armé", arme and not (PF and PF["interrupteur"])), ("Taux réel", C["taux_reel_12m"] >= SEUIL["taux_reel_12m"]),
+    fam_c = [("Coût du capital armé", arme), ("Taux réel", C["taux_reel_12m"] >= SEUIL["taux_reel_12m"]),
              ("Crédit sur marge", bool(C.get("marge_actif"))), ("Institutions 13F", i13[2] == "warn"), ("Concentration NDX", bool(C.get("concentration_60"))),
-             ("Dispersion tech", bool(PF and PF["dispersion"]))]
+             ("Dispersion tech", bool(PF and PF["dispersion"])), ("Défensives en tête", defensives_en_tete(asof)[0])]
     fam_d = [("Correction généralisée", bool(PF and PF["n_corr"] == 3 and not PF["interrupteur"])), ("Peur · VIX", C["vix"] >= C["vix_q80"])]
     return fam_c, fam_d
 
@@ -196,9 +209,10 @@ def revue_du_vendredi(PF):
     i13 = inst_13f()
     fam_d = [("Correction généralisée", sum(1 - x for x in ph.values()) == 3 and not (arme and sous50), "rebond du NDX +4 à +5 pts sur 3 mois en moyenne"),
              ("Peur · VIX", vx.iloc[-1] >= q80, f"VIX {nb(vx.iloc[-1], 1)} contre 80e centile {nb(q80, 1)} · rebond +2 à +4 pts sur 3 mois")]
-    fam_c = [("Interrupteur armé", arme and not sous50), ("Taux réel", rr.iloc[-1] - rr.iloc[-253] >= SEUIL["taux_reel_12m"]),
+    fam_c = [("Coût du capital armé", arme), ("Taux réel", rr.iloc[-1] - rr.iloc[-253] >= SEUIL["taux_reel_12m"]),
              ("Crédit sur marge", bool(C.get("marge_actif"))), ("Institutions 13F", i13[2] == "warn"), ("Concentration NDX", bool(C.get("concentration_60"))),
              ("Dispersion tech", any(a for a, _ in disp) and any(b for _, b in disp))]
+    dft = defensives_en_tete(v_); fam_c.append(("Défensives en tête", dft[0]))
     k2t = "ALLUMÉ" if B and B["actif"] else "ÉTEINT"; k2n = "bad" if B and B["actif"] else "ok"
     lig = (f'<div class="lab">Revue du vendredi {jour(v_)}</div>'
            f'<div style="margin-top:6px"><b>K2 (règle)</b> : <b style="color:{COUL[k2n]}">{k2t}</b> — S&P {nb(B["sp"], 0) if B else "—"} contre sa moyenne 40 semaines {nb(B["m40"], 0) if B else "—"}'
@@ -206,7 +220,9 @@ def revue_du_vendredi(PF):
            f' <span class="small">K2 mensuel (ancien, pour comparaison) : {"allumé" if Bm and Bm["actif"] else "éteint"}.</span></div>'
            '<div style="margin-top:8px"><b>Creux (à regarder)</b> : ' + " · ".join(f'{n} <b style="color:{COUL["ok"] if on else "#cbd5e1"}">{"ALLUMÉ" if on else "non"}</b>' + (f' <span class="small">({d})</span>' if on else "") for n, on, d in fam_d) + "</div>"
            '<div class="small" style="margin-top:8px"><b>Tension (contexte, sans pouvoir d’annonce)</b> : ' + " · ".join(f'{n} {"●" if on else "○"}' for n, on in fam_c)
-           + ". Marge et 13F au rythme de leur publication.</div>")
+           + ". Marge et 13F au rythme de leur publication.</div>"
+           + (f'<div class="small" style="margin-top:6px;color:{COUL["warn"]}">Défensives en tête depuis le {jour(dft[1])} : XLP a battu le S&P de {pc(dft[2])} sur 21 séances alors que la tech était encore haute. '
+              'Depuis 1999 (14 cas), le NDX a perdu au moins 10 % dans les 3 mois une fois sur deux, contre 15 % en temps normal. Piste, pas règle : regarder K2 et le décor de taux, ne pas vendre sur ce seul signal.</div>' if dft[0] else ""))
     md(carte(lig, "card tight", "border-left:3px solid #60a5fa"))
 
 def bandeau_break():
@@ -243,7 +259,7 @@ def journal_modele(_D, jusqua, cle_):
 
 @st.cache_data(show_spinner="Ordres du jour…", max_entries=8)
 def positions_du(_D, asof_, prec_, cle_):
-    a_, pos, B = ligne_journal(_D, asof_, None if prec_ is None else {"positions": prec_}); return str(pd.Timestamp(a_).date()), pos, bool(B.get("actif"))
+    a_, pos, B, _v = ligne_journal(_D, asof_, None if prec_ is None else {"positions": prec_}); return str(pd.Timestamp(a_).date()), pos, bool(B.get("actif"))
 
 def regime_petrole():
     """Repère d'accélération (petrole_acceleration, 18/11/2026) : Brent V20 et écart à la moyenne 200 tous deux ≥ leur centile 70 sur 3 ans
@@ -337,7 +353,7 @@ def bloc_modele():
     """Portefeuille modèle du système depuis le déploiement."""
     md(f'<div class="sec">Portefeuille modèle · le système appliqué à la lettre depuis le {jour(DEPLOIEMENT)}</div>')
     j = journal_modele(D, pd.Timestamp(asof), cle)
-    tc = (D.get("titres") or {}).get("close", pd.DataFrame())
+    tc = cours_valorisation(D)
     v = valoriser(j, tc) if len(j) else pd.Series(dtype=float)
     if pd.Timestamp(asof) < DEPLOIEMENT or len(j) == 0:
         md(carte(f'<div class="txt">Suivi à partir du {jour(DEPLOIEMENT)} : la première ligne s’écrit à la clôture de cette séance, la première performance à la suivante.</div>', "card tight")); return
@@ -443,7 +459,7 @@ def conclusion_du_jour(PF):
     with st.expander("Comment lire la conclusion"):
         md('<div class="txt"><b>A</b> dit si l’on peut être investi, <b>B</b> dit quand et quoi détenir : ces deux familles seules décident. '
            f'<b>Poids</b> : W1 de fin de mois ({jour(PF["date_poids"])}) × l’état du cycle de la part (cycle porteur × 1,5 ; couteau pris par un S5 × 0,5 ; correction sans S5 × 1 ; fin de cycle proche × 0,5 en plus), total investi ≤ 100 %, 50 % au plus par part et 25 % pour l’or tant qu’il n’a pas de trades réels, le reste en cash (allocation_cycles, limite_or). <b>Break</b> : capital à −30 % de son plus haut → tout couper ; blocage K2 (S&P sous sa moyenne 40 semaines en clôture du vendredi avec un décor de taux allumé) → aucune entrée tech nouvelle (l’or et l’or-VIX restent libres, k2_or), levé après 8 vendredis de suite au-dessus, ou 2 si le décor de taux s’est éteint (k2_duree · k2_levee_taux) ; −35 % → arrêt du système (break). '
-           f'<b>Position</b> : cycle ouvert → cœur de 2 du dernier S5 (coeur_permanent). <b>Exécution</b> : à la clôture du jour du signal, par un ordre au cours de clôture (vers 21 h 40, heure de Paris, à vérifier selon ton courtier et l’heure d’été) ; les sorties sont des niveaux connus la veille (timing_entree). '
+           f'<b>Position</b> : cycle ouvert → cœur d’un titre du dernier S5 (v7.0, optimisation). <b>Exécution</b> : à la clôture du jour du signal, par un ordre au cours de clôture (vers 21 h 40, heure de Paris, à vérifier selon ton courtier et l’heure d’été) ; les sorties sont des niveaux connus la veille (timing_entree). '
            f'<b>Or · rebond après panique</b> : quand le VIX a atteint 30 puis repasse sous 85 % de son pic, cœur de 2 mines, 15 % du capital au plus dans la limite or de 25 %, si la part or est dehors (K2 ne la bloque pas) ; vente 126 séances après ou si GDX perd 25 % (or_vix_risque). '
            f'<b>C</b> et <b>D</b> sont des alertes : elles disent où regarder, jamais quoi faire ; testées ensemble, elles ne se cumulent pas (familles_indicateurs). Si une alerte contredit la règle, la règle gagne.<br>'
            f'Poche hors stratégie, pour les excursions entre deux trades : {" · ".join(PF["defensif"])} (XLP au {PF["date_xlp"]}).</div>')
@@ -476,7 +492,7 @@ def zones(fig, masque, couleur, row):
 
 def graphique_macro(nj):
     X = series_macro().iloc[-nj:]; has_m = "marge_yoy" in X and X.marge_yoy.notna().any(); has_c = "concentration" in X and X.concentration.notna().any()
-    titres = ["Nasdaq 100 · zones orange : interrupteur coût du capital actif · zones violettes : alerte crédit sur marge", "Peur · VIX et son 80e percentile sur 1 an",
+    titres = ["Nasdaq 100 · zones orange : coût du capital en hausse et NDX sous sa moyenne 50 (lecture) · zones violettes : alerte crédit sur marge", "Peur · VIX et son 80e percentile sur 1 an",
               "Coût du capital · variations en points (l’interrupteur s’arme à +1 pt)", "Taux réel 10 ans sur 12 mois (pts) · dollar sur 10 séances (%)"]
     if has_m: titres.append("Crédit sur marge (FINRA) · croissance sur 12 mois et recul depuis son plus haut de 6 mois")
     if has_c: titres.append("Concentration · NDX contre ses membres à parts égales, sur 6 mois")
@@ -838,11 +854,11 @@ with t2:
 
 # ================================================================ MACRO
 with t3:
-    md('<div class="txt" style="margin-bottom:10px">Les indicateurs macro de l’outil sur un même axe de temps, avec leurs seuils. Ils ne décident pas seuls : l’interrupteur coût du capital est une règle, le reste (crédit sur marge, concentration, taux réel, dollar) sont des alertes de lecture.</div>')
+    md('<div class="txt" style="margin-bottom:10px">Les indicateurs macro de l’outil sur un même axe de temps, avec leurs seuils. Ils ne décident pas seuls : depuis la v7.0, le coût du capital est une lecture (l’interrupteur X5 est retiré, K2 protège des chocs de taux), comme le crédit sur marge, la concentration, le taux réel et le dollar.</div>')
     nj = PERIODES[st.radio("Période", list(PERIODES), index=2, horizontal=True, key="macro_periode")]
     try:
         figm, last = graphique_macro(nj)
-        cards = [("Interrupteur coût du capital", "ACTIF" if last.interrupteur else ("ARMÉ" if last.arme else "ÉTEINT"), "bad" if last.interrupteur else ("warn" if last.arme else "ok"),
+        cards = [("Coût du capital (lecture)", "ACTIF" if last.interrupteur else ("ARMÉ" if last.arme else "ÉTEINT"), "bad" if last.interrupteur else ("warn" if last.arme else "ok"),
                   f"10 ans {'+' if last.taux10_6m >= 0 else ''}{nb(last.taux10_6m)} pt / 6 mois · Fed {'+' if last.fed_12m >= 0 else ''}{nb(last.fed_12m)} pt / 12 mois"),
                  ("Peur · VIX", nb(last.vix, 1), "warn" if last.vix >= last.q80 else "ok", f"80e percentile {nb(last.q80, 1)}"),
                  ("Taux réel · 12 mois", f"{'+' if last.taux_reel_12m >= 0 else ''}{nb(last.taux_reel_12m)} pt", "warn" if last.taux_reel_12m >= SEUIL["taux_reel_12m"] else "ok", "vent contraire au-delà de +0,5 pt"),

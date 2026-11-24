@@ -1,8 +1,9 @@
 """Titres de chaque thématique (univers_coeur, coeur_controles, minicycles_titres — 17/11/2026).
 Règle : parmi les 15 plus gros poids de l'ETF (NDX : les 15 plus gros volumes en dollars sur 60 séances), les 5 au bêta
 en correction le plus élevé ; cœur = les 2 premiers. Liste figée à chaque signal S5 du secteur.
-Position (système retenu, en titres) : cycle ouvert → le cœur de 2, figé au dernier S5 (cœur permanent, décision du 19/11/2026,
-coeur_permanent) ; cycle fermé, interrupteur coût du capital actif ou hausse effacée (G3) → cash."""
+Position (système retenu, en titres, v7.0 du 24/11/2026) : cycle ouvert → le cœur d'un titre (le premier de la liste des 5 au bêta
+en correction), figé au dernier S5 (cœur permanent) ; cycle fermé ou hausse effacée (G3) → cash. L'interrupteur coût du capital (X5)
+est retiré (optimisation du 24/11/2026 : K2 regarde déjà la hausse des taux)."""
 import os
 import numpy as np, pandas as pd
 from .calcul import zz
@@ -55,7 +56,7 @@ def pic_hausse_effacee(e, asof):
         if not on and sig[i]: on = True; seuil = hh[i - 2] if i >= 2 else p[i]; d_sig = d
     return dict(actif=on, date=d_sig, seuil=seuil) if on else dict(actif=False, date=None, seuil=None)
 
-def titres(E, C, T, asof):
+def titres(E, C, T, asof, n_coeur=1):
     """Par thématique : état de la position, date de la liste, liste des 5, cœur, mesures par titre."""
     if T is None or T["close"].empty: return {}
     comp, ndx, d_comp, d_ndx = compositions(); out = {}; cl = T["close"].loc[:asof]
@@ -68,10 +69,10 @@ def titres(E, C, T, asof):
         if d - cl.index[0] < pd.Timedelta(days=3 * 365):
             out[theme] = dict(dispo=False, raison="historique des titres insuffisant pour cette date"); continue
         L5, b, poids = selection(theme, S, mth, d, dict(close=cl, volume=T["volume"].loc[:asof]), comp, ndx)
-        coeur = L5[:2]
+        coeur = L5[:n_coeur]
         if theme == "NDX" and "SOX" in out and out["SOX"].get("dispo") and out["SOX"].get("etat") == "CŒUR":
-            pris = set(out["SOX"]["coeur"]); coeur = [t for t in L5 if t not in pris][:2] or coeur
-        abri = arme and not e["ma50"]; pic = pic_hausse_effacee(e, asof)
+            pris = set(out["SOX"]["coeur"]); coeur = [t for t in L5 if t not in pris][:n_coeur] or coeur
+        abri = False; pic = pic_hausse_effacee(e, asof)   # X5 retiré (v7.0)
         if abri: etat, niv, txt = "À L'ABRI", "bad", "Interrupteur coût du capital actif : cash."
         elif pic["actif"]: etat, niv, txt = "CASH · PIC", "bad", f"Hausse des 10 séances effacée en moins de 3 séances (le {pic['date']:%d/%m/%Y}) : cash jusqu’à une clôture au-dessus de {pic['seuil']:,.0f} ou un nouveau S5.".replace(",", " ")
         elif en_cours: etat, niv, txt = "CŒUR", "ok", f"Mini-cycle en cours depuis le {d:%d/%m/%Y} : détenir le cœur."
@@ -222,7 +223,7 @@ def portefeuille(E, C, TI, OT, O, T, asof, plancher=0.05, ov=None):
     ph = {n: phase_temps_reel(E[n]["s"].loc[:asof], E[n]["seuil_mini"]).iloc[-1] for n in ["SOX", "Logiciel", "NDX"] if n in E}
     n_corr = int(sum(1 - v for v in ph.values()))
     arme = C["taux10_6m"] >= SEUIL["taux10_6m"] or (C["fed_12m"] == C["fed_12m"] and C["fed_12m"] >= 1.0)
-    inter = arme and "NDX" in E and not E["NDX"]["ma50"]
+    inter = False   # X5 retiré (v7.0) : plus de mise à l'abri sur le coût du capital
     disp = []
     for n in ["SOX", "Logiciel", "NDX"]:
         if n not in E: continue

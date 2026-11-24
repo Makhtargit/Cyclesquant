@@ -99,7 +99,7 @@ Toutes les valeurs ci-dessous sont dans `boussoles/regles.py` (`MARCHES`, `REGLA
    - meilleur que le S&P sur 20 séances ;
    - plus bas de 60 séances vieux d'au moins 10 séances.
 2. **Stratégie A :** entrée au S7, au moins 20 séances après la dernière sortie. Sortie quand le cours recule d'un seuil de cycle depuis son plus haut depuis l'entrée.
-3. **Interrupteur coût du capital :**
+3. **Interrupteur coût du capital (retiré en v7.0, 24/11/2026 : lecture seulement ; K2 couvre les chocs de taux) :**
    - il s'arme quand le taux 10 ans gagne au moins 1 pt sur 126 séances, ou la Fed au moins 1 pt sur 12 mois ;
    - il est actif si, en plus, l'indice est sous sa moyenne 50 : la part passe en cash ;
    - retour au S7 suivant, ou dès que l'alerte s'éteint.
@@ -129,8 +129,8 @@ Toutes les valeurs ci-dessous sont dans `boussoles/regles.py` (`MARCHES`, `REGLA
 2. **Bêta en correction :** médiane, sur les mini-corrections de l'indice des 2 dernières années, de (baisse du titre) / (baisse de l'indice).
 3. **Liste des 5 :** les 5 plus forts bêtas. Le cœur, ce sont les 2 premiers. La liste est figée au S5, et le cœur du NDX exclut le cœur des semis.
 4. **Position (cœur permanent, 19/11/2026) :**
-   - cycle ouvert (trade S5 en cours ou non) → le cœur de 2 du dernier S5 ;
-   - cycle fermé, interrupteur actif ou G3 → cash (« CASH · PIC » pour G3).
+   - cycle ouvert (trade S5 en cours ou non) → le cœur d'un titre du dernier S5 (v7.0 ; NDX sans doublon avec les semis) ;
+   - cycle fermé ou G3 → cash (« CASH · PIC » pour G3).
 5. **Exécution :** à la clôture du jour du signal (ordre au cours de clôture) ; actions entières, arrondies à l'action inférieure.
 
 **Or**
@@ -187,7 +187,7 @@ Une ouverture de page exécute `app.py` de haut en bas. Les calculs lourds sont 
 | 5 | `position_regle` (app.py) | Badge de chaque marché = état de la règle, jamais une alerte |
 | 6 | `or_titres` | Liste des 5 mines, cœur, budget, répartition mines / PHYS |
 | 7 | `portefeuille` | Poids W1 de fin de mois × multiplicateur d'état × limites ; part or-VIX (`or_vix`) ; cash ; poche XLP ; correction généralisée ; dispersion |
-| 7a | `modele` (modele.py) | Portefeuille modèle depuis le déploiement : journal `fichiers/journal_modele.csv`, K2 sur les parts tech nouvelles, coupe à −30 % |
+| 7a | `modele` (modele.py) | Portefeuille modèle depuis le déploiement : journal `fichiers/journal_modele.csv` (colonne `version`, système optimisé v7.0 depuis le 25/11/2026 ; la validation prospective et les expériences E et F sont arrêtées), K2 sur les parts tech nouvelles, coupe à −30 % |
 | 7b | `ordres_du_jour` (app.py) | Ordres à l'impératif par part, en actions entières ; carte de la poche pétrole |
 | 8 | `alertes_decor` → `conclusion_du_jour` | Familles C et D → phrase et tableau de la Conclusion du jour |
 | 9 | `series_macro` → `graphique_macro` ; `inst_13f` | Onglet Macro : six panneaux et la carte 13F |

@@ -604,9 +604,9 @@ def lois_du_jour(e, c, st):
         arme = c["taux10_6m"] >= SEUIL["taux10_6m"] or (c["fed_12m"] == c["fed_12m"] and c["fed_12m"] >= 1.0)
         val_cc = f"10 ans {'+' if c['taux10_6m'] >= 0 else ''}{nb(c['taux10_6m'])} pt / 6 mois · Fed {'+' if (c['fed_12m'] or 0) >= 0 else ''}{nb(c['fed_12m'])} pt / 12 mois"
         if arme and not e["ma50"]:
-            out.append(L("Interrupteur coût du capital", "ACTIF · " + val_cc, "Coût du capital en hausse rapide et indice sous sa moyenne 50 : se mettre à l'abri. Retour dès que l'alerte s'éteint (cours au-dessus de la moyenne 50, ou hausses retombées sous 1 pt).", "bad", "alerte_taux_sortie · pic_tech_doc · NDX pire baisse −28 % au lieu de −39 % depuis 2010"))
+            out.append(L("Coût du capital (lecture)", "en hausse rapide · " + val_cc, "Coût du capital en hausse rapide et indice sous sa moyenne 50. Lecture seulement depuis la v7.0 : l'interrupteur X5 est retiré, c'est K2 qui protège des chocs de taux.", "warn", "optimisation (24/11/2026)"))
         elif arme:
-            out.append(L("Interrupteur coût du capital", "armé · " + val_cc, "Le coût du capital monte vite ; l'interrupteur se déclenche si l'indice clôture sous sa moyenne 50.", "warn", "alerte_taux_sortie · pic_tech_doc"))
+            out.append(L("Coût du capital (lecture)", "en hausse · " + val_cc, "Le coût du capital monte vite. Lecture seulement (X5 retiré en v7.0) ; K2 agit si le S&P passe sous sa moyenne 40 semaines.", "info", "optimisation (24/11/2026)"))
         if c.get("marge_actif"):
             out.append(L("Alerte crédit sur marge", f"le crédit se retourne : {pc(c['marge_yoy'])} sur 12 mois, {c['marge_recul'] * 100:.0f} pts sous son plus haut de 6 mois",
                          "Les achats à crédit des particuliers s'essoufflent alors que le NDX est près de son plus haut : profil de 2021 (allumé de juillet 2021 à janvier 2022) et du 28/10/2026. Lecture, pas une règle : vérifier les sorties du système.",

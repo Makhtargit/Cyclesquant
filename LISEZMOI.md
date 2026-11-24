@@ -58,6 +58,29 @@
 ---
 # Annexe · historique des versions
 
+## v7.0 (24/11/2026) — système optimisé
+- **Règles changées** (optimisation du 24/11/2026, moteur officiel) : l'interrupteur coût du capital (X5) est retiré (lecture seulement ; K2 inchangé) ; le cœur de chaque thématique tech passe à **un titre** (le premier de la liste des 5 au bêta en correction ; NDX sans doublon avec les semis). L'or garde son cœur de 2 mines.
+- Résultat historique (titres) : 2016-2021 rapport 1,81 contre 1,52 ; 2022-2026 3,98 contre 2,75 ; 2016-2026 +44,5 %/an, pire baisse −20 % (contre +36,5 %, −21 %). Indices 1995-2015 (sans X5) : 0,32 contre 0,26.
+- Partie test retirée : plus de variantes A/B/C/E/F, plus de tableau de validation prospective ni de copie figée. Le portefeuille modèle suit le système optimisé à partir du 25/11/2026.
+- Risque : 3 titres tech au total ; le risque propre à un titre n'est pas couvert par le break.
+
+## v6.18 (24/11/2026)
+- Expérience F : le système sans X5 et avec un cœur d'un seul titre par part (le premier de la liste des 5), depuis la clôture du 25/11/2026, hors test C. Optimisation du 24/11/2026, moteur officiel : cœur de 1 seul, titres 2016-2021 1,76 contre 1,52, 2022-2026 3,74 contre 2,75 ; avec sans X5 : 1,81 et 3,98. Plus concentré (3 titres tech au total) : risque propre à un titre plus élevé, non mesurable sur 2016-2026.
+
+## v6.17 (24/11/2026)
+- Expérience E dans le journal du portefeuille modèle : le système sans l'interrupteur coût du capital (X5), K2 inchangé, à partir de la clôture du 25/11/2026. Hors test C (qui garde ses 4 variantes et ses dates) ; candidat pour la révision de novembre 2028 (optimisation, 24/11/2026 : titres 2016-2021 1,57 contre 1,52, 2022-2026 2,92 contre 2,75, indices 1995-2015 0,32 contre 0,26, moteur officiel). Les règles de décision ne changent pas.
+
+## v6.16 (22/11/2026)
+- Avenant n° 1 au protocole de validation prospective : base 100 des 4 variantes à la clôture du vendredi 20/11/2026 ; seuils de verdict fixés d'avance (timing validé si D − C ≥ +2 pts/an, D − A ≥ +3 pts/an et meilleur Calmar ; échec si D − C ≤ 0 et Calmar D ≤ Calmar C) ; frais inchangés (0,2 % du montant échangé à chaque achat et vente). Prédictions écrites dans `predictions_validation_reelle`.
+
+## v6.15 (22/11/2026)
+- Validation prospective (protocole_validation_reelle, figé le 22/11/2026) : le journal du portefeuille modèle suit chaque soir 4 variantes gelées — A poids fixes sur les indices, B timing du système sur les indices, C poids fixes sur les cœurs de titres, D le système. Poids fixes : SOX 17,9 %, logiciel 18,6 %, NDX 17,7 % ; or identique partout. Tableau sous le portefeuille modèle. Verdict principal le 21/11/2028 ; aucune règle ne change d'ici là.
+- Chaque ligne du journal porte la version du code (colonne `version`). Bouton « Télécharger la copie figée du journal » : à archiver chaque semaine sur GitHub (en ligne, le journal est recalculé à chaque redémarrage).
+- `fichiers/journal_modele.py` affiche la valeur des 4 variantes.
+
+## v6.14 (22/11/2026)
+- Nouvelle alerte de tension « Défensives en tête » (revue du vendredi et Conclusion du jour) : NDX à moins de 5 % de son plus haut de 126 séances et XLP qui bat le S&P d'au moins 5 pts sur 21 séances, apparue dans les 21 dernières séances. Depuis 1999 (14 cas), baisse du NDX d'au moins 10 % dans les 3 mois une fois sur deux, contre 15 % en temps normal (defensives_signal). Lecture, pas règle.
+
 ## v6.13 (21/11/2026)
 - Onglet Or : tableau « Niveaux de GDX et équivalent or » sous le graphique GDX (fin de correction, non-retour, sortie du cycle A, bascule), et l'équivalent or sur les étiquettes du graphique ; graphique du cours de l'or avec ces niveaux convertis en or (même période que le graphique GDX). Or ≈ or du jour × (niveau / GDX)^(1/β), β = sensibilité de GDX à l'or sur 250 séances (≈ 1,44). Lecture, pas une règle.
 - Point de non-retour de GDX : la carte cite désormais la statistique des mines (corrections de GDX au-delà de −25 % pendant un cycle de l'or : 0 reprise sur 7, corrections_phases_or) au lieu de celle de la tech (54-78 %).
