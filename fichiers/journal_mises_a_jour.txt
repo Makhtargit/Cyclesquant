@@ -1,0 +1,2 @@
+26/11/2026 21:22  À mettre à jour : rien, tout est frais (lance « tout » pour forcer)
+26/11/2026 21:22  Terminé. Relance l'application (bouton « Mettre à jour les données »).
